@@ -369,6 +369,7 @@ module.exports = grammar({
         $.nil,
         $.false,
         $.true,
+        $.primitive_type,
         $.number,
         $.string,
         $.vararg_expression,
@@ -398,6 +399,18 @@ module.exports = grammar({
 
     // true
     true: (_) => 'true',
+
+    primitive_type: (_) => token(choice(
+      'bool',
+      'rawstring',
+      'int',
+      'uint',
+      'double',
+      'float',
+      'opaque',
+      ...[8, 16, 32, 64].map(n => `int${n}`),
+      ...[8, 16, 32, 64].map(n => `uint${n}`),
+    )),
 
     // quote block in block end
     quote_statement: ($) =>
@@ -443,7 +456,11 @@ module.exports = grammar({
         field('size', $.expression),
         ']'
       ),
-    _type: ($) => choice($.variable, seq('[', $.expression, ']'), $._array_type),
+    _type: ($) => choice(
+      $.primitive_type,
+      $.variable,
+      seq('[', $.expression, ']'),
+      $._array_type),
     
     // Numeral
     number: (_) => {

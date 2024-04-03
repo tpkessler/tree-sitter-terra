@@ -18,6 +18,9 @@
     "binding.gyp",
     "grammar.js"
   ],
+  "highlights": "queries/highlights.scm",
+  "locals": "queries/locals.scm",
+  "injections": "queries/injections.scm",
   "main": "bindings/node",
   "types": "bindings/node",
   "repository": "https://github.com/MunifTanjim/tree-sitter-lua",

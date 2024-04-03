@@ -1530,6 +1530,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "primitive_type"
+        },
+        {
+          "type": "SYMBOL",
           "name": "number"
         },
         {
@@ -1617,6 +1621,74 @@
     "true": {
       "type": "STRING",
       "value": "true"
+    },
+    "primitive_type": {
+      "type": "TOKEN",
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "bool"
+          },
+          {
+            "type": "STRING",
+            "value": "rawstring"
+          },
+          {
+            "type": "STRING",
+            "value": "int"
+          },
+          {
+            "type": "STRING",
+            "value": "uint"
+          },
+          {
+            "type": "STRING",
+            "value": "double"
+          },
+          {
+            "type": "STRING",
+            "value": "float"
+          },
+          {
+            "type": "STRING",
+            "value": "opaque"
+          },
+          {
+            "type": "STRING",
+            "value": "int8"
+          },
+          {
+            "type": "STRING",
+            "value": "int16"
+          },
+          {
+            "type": "STRING",
+            "value": "int32"
+          },
+          {
+            "type": "STRING",
+            "value": "int64"
+          },
+          {
+            "type": "STRING",
+            "value": "uint8"
+          },
+          {
+            "type": "STRING",
+            "value": "uint16"
+          },
+          {
+            "type": "STRING",
+            "value": "uint32"
+          },
+          {
+            "type": "STRING",
+            "value": "uint64"
+          }
+        ]
+      }
     },
     "quote_statement": {
       "type": "SEQ",
@@ -1995,6 +2067,10 @@
     "_type": {
       "type": "CHOICE",
       "members": [
+        {
+          "type": "SYMBOL",
+          "name": "primitive_type"
+        },
         {
           "type": "SYMBOL",
           "name": "variable"

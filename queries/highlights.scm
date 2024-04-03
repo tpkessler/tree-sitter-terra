@@ -8,6 +8,8 @@
  "local"
 ] @keyword
 
+(primitive_type) @type
+
 [
   "var"
   "struct"
@@ -175,6 +177,8 @@
   (false)
   (true)
 ] @boolean
+
+(primitive_type) @type
 
 ;; Tables
 

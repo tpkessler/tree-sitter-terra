@@ -70,6 +70,10 @@
         "named": true
       },
       {
+        "type": "primitive_type",
+        "named": true
+      },
+      {
         "type": "quote_statement",
         "named": true
       },
@@ -1868,6 +1872,10 @@
   {
     "type": "or",
     "named": false
+  },
+  {
+    "type": "primitive_type",
+    "named": true
   },
   {
     "type": "quote",
