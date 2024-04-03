@@ -8,6 +8,11 @@
  "local"
 ] @keyword
 
+[
+  "var"
+  "struct"
+] @type
+
 (label_statement) @label
 
 (break_statement) @keyword
@@ -63,14 +68,34 @@
 (function_declaration
 [
   "function"
+  "terra"
   "end"
 ] @keyword.function)
 
 (function_definition
 [
   "function"
+  "terra"
   "end"
 ] @keyword.function)
+
+(quote_statement
+[
+ "quote"
+ "in"
+ "end"
+] @keyword)
+
+(escape_statement
+[
+  "escape"
+  "end"
+] @keyword)
+
+(emit_statement
+[
+  "emit"
+] @keyword)
 
 ;; Operators
 
@@ -208,8 +233,8 @@
     ;; built-in functions in Lua 5.1
     "assert" "collectgarbage" "dofile" "error" "getfenv" "getmetatable" "ipairs"
     "load" "loadfile" "loadstring" "module" "next" "pairs" "pcall" "print"
-    "rawequal" "rawget" "rawset" "require" "select" "setfenv" "setmetatable"
-    "tonumber" "tostring" "type" "unpack" "xpcall"))
+    "rawequal" "rawget" "rawset" "require" "import" "select" "setfenv" "setmetatable"
+    "tonumber" "tostring" "type" "unpack" "xpcall" "sizeof" "symbol"))
 
 ;; Others
 

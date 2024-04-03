@@ -22,9 +22,13 @@ const optional_block = ($) => alias(optional($._block), $.block);
 
 // namelist ::= Name {',' Name}
 const name_list = ($) => list_seq(field('name', $.identifier), ',');
+const parameter_list = ($) => list_seq(
+  choice(seq(field('name', $.identifier), optional(field('type', seq(':', $.identifier)))),
+         seq('[', $.expression, ']')),
+  ',');
 
 module.exports = grammar({
-  name: 'lua',
+  name: 'terra',
 
   extras: ($) => [$.comment, /\s/],
 
@@ -36,6 +40,14 @@ module.exports = grammar({
     $._block_string_start,
     $._block_string_content,
     $._block_string_end,
+  ],
+
+  conflicts: ($) => [
+    [$.function_pointer_declaration, $.expression],
+    [$._type, $._array_type, $.expression],
+    [$._type, $.expression],
+    [$._array_type, $.expression],
+    [$.expand_statement, $._type]
   ],
 
   supertypes: ($) => [$.statement, $.expression, $.declaration, $.variable],
@@ -75,7 +87,13 @@ module.exports = grammar({
                 for namelist in explist do block end |
                 function funcname funcbody |
                 local function Name funcbody |
-                local namelist ['=' explist]
+                local namelist ['=' explist] |
+                var name [':' type] [, name [':' type]] '=' exp [',' exp] |
+                symbol([exp]) |
+                quote expr [in expr] end |
+                `expr |
+                terra funcname funcbody |
+                local terra funcname funcbody
     */
     statement: ($) =>
       choice(
@@ -90,7 +108,10 @@ module.exports = grammar({
         $.repeat_statement,
         $.if_statement,
         $.for_statement,
-        $.declaration
+        $.declaration,
+        $.expand_statement,
+        $.escape_statement,
+        $.emit_statement,
       ),
 
     // retstat ::= return [explist] [';']
@@ -199,24 +220,80 @@ module.exports = grammar({
         optional(seq(',', field('step', $.expression)))
       ),
 
+    escape_statement: ($) => seq('escape', field('body', optional_block($)), 'end'),
+
+    emit_statement: ($) => seq('emit', $.expression),
+
+    type_expression: ($) => seq(':', field('type', $._type)),
     // function funcname funcbody
     // local function Name funcbody
     // local namelist ['=' explist]
+    // local terra Name funcbody
     declaration: ($) =>
       choice(
         $.function_declaration,
+        $.function_pointer_declaration,
+        $.struct_declaration,
         field(
           'local_declaration',
           alias($._local_function_declaration, $.function_declaration)
         ),
-        field('local_declaration', $.variable_declaration)
+        field(
+          'local_declaration',
+          alias($._local_struct_declaration, $.struct_declaration)
+        ),
+        field('local_declaration', $.variable_declaration),
       ),
+
+    function_pointer_declaration: ($) =>
+      seq(
+        'terra',
+        field('name', $.identifier),
+        '::',
+        choice(
+          $.function_pointer,
+          $.expression
+        )
+      ),
+
+    struct_declaration: ($) =>
+      seq(
+        'struct',
+        field('name', $.identifier),
+        optional(field('body', $._struct_body))
+      ),
+
+    _struct_body: ($) =>
+      seq(
+        '{',
+        optional(list_seq(seq(
+          field('name', $.identifier),
+          ':',
+          field('type', $._type),
+          ),
+          /[,\n]/,
+          true
+          )),
+        '}'
+      ),
+
+    _local_struct_declaration: ($) =>
+      seq(
+        'local',
+        'struct',
+        field('name', $.identifier),
+        optional(field('body', $._struct_body))
+      ),
+
+    expand_statement: ($) => seq('[', $.expression, ']'),
+
+
     // function funcname funcbody
     function_declaration: ($) =>
-      seq('function', field('name', $._function_name), $._function_body),
+        seq(choice('function', 'terra'), field('name', $._function_name), $._function_body),
     // local function Name funcbody
     _local_function_declaration: ($) =>
-      seq('local', 'function', field('name', $.identifier), $._function_body),
+      seq('local', choice('function', 'terra'), field('name', $.identifier), $._function_body),
     // funcname ::= Name {'.' Name} [':' Name]
     _function_name: ($) =>
       choice(
@@ -247,7 +324,7 @@ module.exports = grammar({
     // local namelist ['=' explist]
     variable_declaration: ($) =>
       seq(
-        'local',
+        seq(choice('local', 'var')),
         choice(
           alias($._att_name_list, $.variable_list),
           alias($._local_variable_assignment, $.assignment_statement)
@@ -266,8 +343,14 @@ module.exports = grammar({
     _att_name_list: ($) =>
       list_seq(
         seq(
-          field('name', $.identifier),
-          optional(field('attribute', alias($._attrib, $.attribute)))
+          choice(
+            seq('[', $.expression, ']'),
+            field('name', $.identifier)
+          ),
+          optional(choice(
+            $.type_expression,
+            field('attribute', alias($._attrib, $.attribute))
+          ))
         ),
         ','
       ),
@@ -295,7 +378,16 @@ module.exports = grammar({
         $.parenthesized_expression,
         $.table_constructor,
         $.binary_expression,
-        $.unary_expression
+        $.unary_expression,
+        $.quote_statement,
+        $.short_quote,
+        $.symbol_statement,
+        $.sizeof_statement,
+        $.function_pointer,
+        $.struct_definition,
+        $.expand_statement,
+        $.cast_type,
+        $.address
       ),
 
     // nil
@@ -307,11 +399,57 @@ module.exports = grammar({
     // true
     true: (_) => 'true',
 
+    // quote block in block end
+    quote_statement: ($) =>
+      seq(
+        'quote',
+        field('body', optional_block($)),
+        optional(field('statements', $.quote_extra_statement)),
+        'end'
+      ),
+    quote_extra_statement: ($) => seq('in', $.expression),
+
+
+    short_quote: ($) => seq('`', field('statement', $.expression)),
+
+    cast_type: ($) => seq('[', field('type', $._type), ']', '(', $.expression, ')'),
+
+    address: ($) => seq('&', $.expression),
+
+    // symbol(exp)
+    symbol_statement: ($) => seq('symbol', '(', optional($._type), ')'),
+    sizeof_statement: ($) => seq('sizeof', '(', field('type', $._type), ')'),
+
+    function_pointer: ($) => 
+    seq(
+      choice(
+        field('argument_type', $._type),
+        seq('{', optional(list_seq(field('argument_type', $._type), ',')), '}')
+      ),
+     '->',
+     choice(
+       field('return_type', $._type),
+       seq('{', optional(list_seq(field('return_type', $._type), ',')), '}')
+     )
+    ),
+
+    _array_type: ($) =>
+      seq(
+        choice(
+          field('type', $.variable),
+          seq('[', $.variable, ']')
+        ),
+        '[',
+        field('size', $.expression),
+        ']'
+      ),
+    _type: ($) => choice($.variable, seq('[', $.expression, ']'), $._array_type),
+    
     // Numeral
     number: (_) => {
       function number_literal(digits, exponent_marker, exponent_digits) {
         return choice(
-          seq(digits, /U?LL/i),
+          seq(digits, /U?L{0,2}/i),
           seq(
             choice(
               seq(optional(digits), optional('.'), digits),
@@ -401,7 +539,7 @@ module.exports = grammar({
     vararg_expression: (_) => '...',
 
     // functiondef ::= function funcbody
-    function_definition: ($) => seq('function', $._function_body),
+    function_definition: ($) => seq(choice('function', 'terra'), $._function_body),
     // funcbody ::= '(' [parlist] ')' block end
     _function_body: ($) =>
       seq(
@@ -409,12 +547,28 @@ module.exports = grammar({
         field('body', optional_block($)),
         'end'
       ),
+
+    struct_definition: ($) => seq('struct', $._struct_body),
+
     // '(' [parlist] ')'
-    parameters: ($) => seq('(', optional($._parameter_list), ')'),
+    parameters: ($) =>
+      seq(
+        '(',
+        optional($._parameter_list),
+        ')',
+        optional(
+          choice(
+            field('return', $.type_expression),
+            field('return', seq(':', '{', optional($._type_list), '}'))
+          )
+          )
+        ),
+    _type_list: ($) =>
+      list_seq($.identifier, ','),
     // parlist ::= namelist [',' '...'] | '...'
     _parameter_list: ($) =>
       choice(
-        seq(name_list($), optional(seq(',', $.vararg_expression))),
+        seq(parameter_list($), optional(seq(',', $.vararg_expression))),
         $.vararg_expression
       ),
 
@@ -438,8 +592,11 @@ module.exports = grammar({
       seq(
         field('table', $._prefix_expression),
         '.',
-        field('field', $.identifier)
-      ),
+        choice(
+          field('field', $.identifier),
+          seq('[', $.expression, ']')
+        )
+    ),
 
     // functioncall ::=  prefixexp args | prefixexp ':' Name args
     function_call: ($) =>
@@ -543,9 +700,9 @@ module.exports = grammar({
     // Name
     identifier: (_) => {
       const identifier_start =
-        /[^\p{Control}\s+\-*/%^#&~|<>=(){}\[\];:,.\\'"\d]/;
+        /[^\p{Control}\s+\-*/%^#~|<>=(){}\[\];:,.\\'`"\d]/;
       const identifier_continue =
-        /[^\p{Control}\s+\-*/%^#&~|<>=(){}\[\];:,.\\'"]*/;
+        /[^\p{Control}\s+\-*/%^#~|<>=(){}\[\];:,.\\'`"]*/;
       return token(seq(identifier_start, identifier_continue));
     },
 

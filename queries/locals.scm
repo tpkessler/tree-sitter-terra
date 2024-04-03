@@ -9,6 +9,9 @@
   (for_statement)
   (function_declaration)
   (function_definition)
+  (quote_statement)
+  (escape_statement)
+  (emit_statement)
 ] @local.scope
 
 ; Definitions
